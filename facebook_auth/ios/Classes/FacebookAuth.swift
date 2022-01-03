@@ -12,7 +12,10 @@ import Foundation
 
 class FacebookAuth: NSObject {
     
-    let loginManager : LoginManager = LoginManager()
+    lazy var loginManager : LoginManager = {
+        ApplicationDelegate.shared.initializeSDK()
+        return LoginManager()
+    }()
     var pendingResult: FlutterResult? = nil
     private var mainWindow: UIWindow? {
         if let applicationWindow = UIApplication.shared.delegate?.window ?? nil {
