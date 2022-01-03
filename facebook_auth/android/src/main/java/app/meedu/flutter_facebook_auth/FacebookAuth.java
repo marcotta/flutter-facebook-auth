@@ -5,6 +5,7 @@ import android.os.Bundle;
 
 import com.facebook.AccessToken;
 import com.facebook.CallbackManager;
+import com.facebook.FacebookSdk;
 import com.facebook.GraphRequest;
 import com.facebook.GraphResponse;
 import com.facebook.LoginStatusCallback;
@@ -21,15 +22,29 @@ import io.flutter.plugin.common.MethodChannel;
 
 
 public class FacebookAuth {
-    private final LoginManager loginManager;
+    private LoginManager loginManager;
     FacebookLoginResultDelegate resultDelegate;
+    private CallbackManager callbackManager;
+
+    private void initializeFacebookSdkIfNeeded() {
+        if (!FacebookSdk.getAutoInitEnabled()) {
+            FacebookSdk.setAutoInitEnabled(true);
+            FacebookSdk.fullyInitialize();
+        }
+    }
+
+    private synchronized LoginManager getLoginManager() {
+        if (loginManager == null) {
+            initializeFacebookSdkIfNeeded();
+            loginManager = LoginManager.getInstance();
+            loginManager.registerCallback(callbackManager, resultDelegate);
+        }
+        return loginManager;
+    }
 
     FacebookAuth() {
-        loginManager = LoginManager.getInstance();
-        CallbackManager callbackManager = CallbackManager.Factory.create();
+        callbackManager = CallbackManager.Factory.create();
         resultDelegate = new FacebookLoginResultDelegate(callbackManager);
-        loginManager.registerCallback(callbackManager, resultDelegate);
-
     }
 
 
@@ -43,11 +58,11 @@ public class FacebookAuth {
     void login(Activity activity, List<String> permissions, MethodChannel.Result result) {
         final boolean hasPreviousSession = AccessToken.getCurrentAccessToken() != null;
         if (hasPreviousSession) {
-            loginManager.logOut();
+            getLoginManager().logOut();
         }
         final boolean isOk = resultDelegate.setPendingResult(result);
         if (isOk) {
-            loginManager.logIn(activity, permissions);
+            getLoginManager().logIn(activity, permissions);
         }
     }
 
@@ -78,7 +93,7 @@ public class FacebookAuth {
             default:
                 loginBehavior = LoginBehavior.NATIVE_WITH_FALLBACK;
         }
-        loginManager.setLoginBehavior(loginBehavior);
+        getLoginManager().setLoginBehavior(loginBehavior);
     }
 
     /**
@@ -105,7 +120,7 @@ public class FacebookAuth {
     void logOut(MethodChannel.Result result) {
         final boolean hasPreviousSession = AccessToken.getCurrentAccessToken() != null;
         if (hasPreviousSession) {
-            loginManager.logOut();
+            getLoginManager().logOut();
         }
         result.success(null);
     }
@@ -117,7 +132,7 @@ public class FacebookAuth {
      * @param result   flutter method channel result to send the response to the client
      */
     void expressLogin(Activity activity, final MethodChannel.Result result) {
-        LoginManager.getInstance().retrieveLoginStatus(activity, new LoginStatusCallback() {
+        getLoginManager().retrieveLoginStatus(activity, new LoginStatusCallback() {
             @Override
             public void onCompleted(AccessToken accessToken) {
                 // User was previously logged in, can log them in directly here.
